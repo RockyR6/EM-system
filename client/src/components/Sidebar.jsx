@@ -17,7 +17,7 @@ const Sidebar = () => {
     setMobileOpen(false);
   }, [pathname]);
 
-  const role = '' || 'EMPLOYEE';
+  const role = 'ADMIN' || 'EMPLOYEE';
 
   const navigationItems = [
     { name: "Dashboard", icon: LayoutGridIcon, href: "/dashboard" },
