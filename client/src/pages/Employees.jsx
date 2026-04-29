@@ -13,18 +13,16 @@ const Employees = () => {
   const [showCreateModal, setShowCreateModal] = useState(false);
 
   //added selectedDept dependency
-  const fetchEmployees = useCallback(() => {
+  const fetchEmployees = useCallback(async() => {
     setLoading(true);
 
-    const filtered = dummyEmployeeData.filter((emp) =>
-      selectedDept ? emp.department === selectedDept : true
-    );
-
-    setEmployees(filtered);
+    setEmployees( dummyEmployeeData.filter((emp) =>
+      selectedDept ? emp.department === selectedDept : emp
+    ));
 
     setTimeout(() => {
       setLoading(false);
-    }, 500);
+    }, 1000);
   }, [selectedDept]);
 
   // added dependency
