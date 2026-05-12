@@ -1,4 +1,4 @@
-import Employee from "../models/Employee.model";
+import Employee from "../models/Employee.model.js";
 
 
 //get profile
