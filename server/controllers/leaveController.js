@@ -4,7 +4,7 @@ import LeaveAppliction from "../models/LeaveApplication.model.js"
 
 //crate leaves
 //POST /api/leaves
-export const CrateLeave = async(req, res) => {
+export const createLeave = async(req, res) => {
     try {
         const session = req.session
         const employee = await Employee.findOne({userId: session.userId})
@@ -56,7 +56,7 @@ export const getLeave = async(req, res) => {
             const leaves = (await LeaveAppliction.find(where).populate('employeeId')).sort({createdAt: -1})
     
             const data = leaves.map((l) => {
-                const obj = l.toObject(),
+                const obj = l.toObject()
                 return {
                     ...obj,
                     id: obj._id.toString(),
