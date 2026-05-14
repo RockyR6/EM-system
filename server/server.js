@@ -8,6 +8,7 @@ import employeeRouter from './routes/employeeRoutes.js';
 import profileRouter from './routes/profileRoute.js';
 import leaveRouter from './routes/leaveRoutes.js';
 import payslipRouter from './routes/payslipRoutes.js';
+import dashboardRouter from './routes/dashboardRoutes.js';
 
 
 const app = express()
@@ -28,6 +29,7 @@ app.use('/api/profile', profileRouter)
 app.use('/api/attendance', profileRouter)
 app.use('/api/leave', leaveRouter)
 app.use('/api/payslip', payslipRouter)
+app.use('/api/dashboard', dashboardRouter)
 
 
 await connectDB()
