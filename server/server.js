@@ -15,7 +15,7 @@ import { inngest, functions } from "./inngest/index.js"
 
 const app = express()
 
-const PORT = process.env.PORT || 4000;
+
 
 //Middlewares
 app.use(cors())
@@ -24,7 +24,7 @@ app.use(multer().none())
 
 
 //Routes
-app.get('/', (req, res)=> res.send('Server is runniung'))
+app.get('/', (req, res)=> res.send('Server is running'))
 app.use('/api/auth', authRouter)
 app.use('/api/employees', employeeRouter)
 app.use('/api/profile', profileRouter)
@@ -33,11 +33,36 @@ app.use('/api/leave', leaveRouter)
 app.use('/api/payslip', payslipRouter)
 app.use('/api/dashboard', dashboardRouter)
 
-//inngest
-app.use("/api/inngest", serve({ client: inngest, functions }));
 
 
-await connectDB()
+//start server after DB connection
+const startServer = async() => {
+    try {
+        await connectDB()
+        console.log('MongoDB connected')
+
+        //set up the "api/inngest" routes
+        app.use("/api/inngest", serve({ client: inngest, functions }));
+
+        const PORT = process.env.PORT || 4000;
+        app.listen(PORT, () => console.log(`Server running on port ${PORT}`))
+    } catch (error) {
+        console.error(" Error starting server:", err);
+        process.exit(1);
+    }
+}
+
+startServer()
 
 
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`))
+
+
+
+
+// app.use("/api/inngest", serve({ client: inngest, functions }));
+
+
+// await connectDB()
+
+
+// app.listen(PORT, () => console.log(`Server running on port ${PORT}`))
