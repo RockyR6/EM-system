@@ -1,7 +1,6 @@
 import { Inngest } from "inngest";
-import Addtndance from "../models/Attendance.model.js";
-import Employee from "../models/Employee.model.js";
 import Attendance from "../models/Attendance.model.js";
+import Employee from "../models/Employee.model.js";
 import LeaveApplication from "../models/LeaveApplication.model.js";
 import sendEmail from "../config/nodemailer.js";
 
@@ -10,7 +9,10 @@ export const inngest = new Inngest({ id: "ems-service" });
 
 //auto check-out for employees
 const autoCheckOut = inngest.createFunction(
-  { id: "auto-check-out", triggers: [{ event: "employee/check-out" }] },
+  {
+    id: "auto-check-out",
+    trigger: { event: "employee/check-out" }
+  },
   async ({ event, step }) => {
     const { employeeId, attendanceId } = event.data;
 
@@ -21,7 +23,7 @@ const autoCheckOut = inngest.createFunction(
     );
 
     //get attendance data
-    let attendance = await Addtndance.findById(attendanceId);
+    let attendance = await Attendance.findById(attendanceId);
 
     if (!attendance?.checkOut) {
       //get employee data
@@ -63,7 +65,10 @@ const autoCheckOut = inngest.createFunction(
 
 //send email to admin, if admin doesn't take action on leave application within 24 hours
 const leaveApplicationReminder = inngest.createFunction(
-  { id: "leave-application-reminder", triggers: [{ event: "leave/pending" }] },
+  {
+    id: "leave-application-reminder",
+    trigger: { event: "leave/pending" }
+  },
   async ({ event, step }) => {
     const { leaveApplicationId } = event.data;
 
@@ -96,18 +101,21 @@ const leaveApplicationReminder = inngest.createFunction(
   },
 );
 
-//Cron: check attendance at 11:30 AM IST (06:00 UTC) and email absent employees
+//Cron: check attendance at 6:00 AM UTC (11:30 AM IST) and email absent employees
 const attendanceReminderCron = inngest.createFunction(
-  { id: "attendance-reminder-cron", triggers: [{ cron: "0 0 6 * * *" }] }, // 06:00 UTC = 11:30 IST
+  {
+    id: "attendance-reminder-cron",
+    trigger: { cron: "0 6 * * *" }
+  },
   async ({ event, step }) => {
     //step 1: get today's date range (IST)
     const today = await step.run("get-today-date", () => {
-      const istOffset = 5.5 * 60 * 60 * 1000; // IST is UTC+5:30
+      const istOffset = 5.5 * 60 * 60 * 1000;
       const nowIST = new Date(Date.now() + istOffset);
       const dateStringIST = nowIST.toISOString().split("T")[0];
       
       const startUTC = new Date(dateStringIST + "T00:00:00Z");
-      startUTC.setHours(startUTC.getHours() - 5, startUTC.getMinutes() - 30); // Convert back to UTC
+      startUTC.setHours(startUTC.getHours() - 5, startUTC.getMinutes() - 30);
       
       const endUTC = new Date(startUTC.getTime() + 24 * 60 * 60 * 1000);
       
@@ -184,7 +192,7 @@ const attendanceReminderCron = inngest.createFunction(
   },
 );
 
-// Export functions array for Vercel
+// Export functions array
 export const functions = [
   autoCheckOut,
   leaveApplicationReminder,
