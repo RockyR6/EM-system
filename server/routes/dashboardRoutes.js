@@ -5,7 +5,7 @@ import { getDashboard } from '../controllers/dashboardController.js'
 
 const dashboardRouter = Router()
 
-dashboardRouter.post('/', protect, getDashboard)
+dashboardRouter.get('/', protect, getDashboard)
 
 
 export default dashboardRouter;

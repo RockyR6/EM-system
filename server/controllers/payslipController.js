@@ -10,19 +10,19 @@ import Employee from "../models/Employee.model.js";
 // POST /api/payslips
 export const createPayslip = async (req, res) => {
     try {
-        const { employeeId, month, year, basicSaclary, allowances, deductions } = req.body;
+        const { employeeId, month, year, basicSalary, allowances, deductions } = req.body;
 
-        if(!employeeId || !month || !year || !basicSaclary|| !allowances || !deductions){
+        if(!employeeId || !month || !year || !basicSalary|| !allowances || !deductions){
             return res.status(400).json({ error: 'Missing fields' })
         }
 
-        const netSalary = Number(basicSaclary) + Number(allowances || 0) - Number(deductions || 0)
+        const netSalary = Number(basicSalary) + Number(allowances || 0) - Number(deductions || 0)
 
         const payslip = await Payslip.create({
             employeeId,
             month: Number(month),
             year: Number(year),
-            basicSaclary: Number(basicSaclary),
+            basicSalary: Number(basicSalary),
             allowances: Number(allowances || 0),
             deductions: Number(deductions || 0),
             netSalary,
@@ -37,30 +37,50 @@ export const createPayslip = async (req, res) => {
 //get payslip
 //GET /api/payslips
 export const getPayslip = async (req, res) => {
-    try {
-        const session = req.session;
-        const isAdmin = session.role === 'ADMIN'
-        if(isAdmin){
-            const payslips = (await Payslip.find().populate('employeeId')).aort({createdAt: -1})
-            const data = payslips.map((p) => {
-                const obj = p.toObject()
-                return {
-                    ...obj, 
-                    id: Object._id.toString(),
-                    employee: obj.employeeId,
-                    employeeId: obj.employeeId?._id?.toString()
-                }
-            })
-            return res.json({data})
-        }else{
-            const employee = await Employee.findOne({ userId: session.userId })
-            const payslips = (await Payslip.find({employeeId: employee._id})).toSorted({createdAt: -1})
-            return res.json({data: payslips})
-        }
-    } catch (error) {
-        return res.status(500).json({error: 'Failed to get Payslip'})
+  try {
+    const user = req.user;
+    const isAdmin = user.role === 'ADMIN';
+
+    if (isAdmin) {
+      const payslips = await Payslip.find()
+        .populate('employeeId')
+        .sort({ createdAt: -1 });
+
+      const data = payslips.map((p) => {
+        const obj = p.toObject();
+        return {
+          ...obj,
+          id: obj._id.toString(),
+          employee: obj.employeeId,
+          employeeId: obj.employeeId?._id?.toString(),
+        };
+      });
+
+      return res.json({ data });
+
+    } else {
+      const employee = await Employee.findOne({ userId: user.userId });
+
+      if (!employee) {
+        return res.status(404).json({ error: 'Employee not found' });
+      }
+
+      const payslips = await Payslip.find({ employeeId: employee._id })
+        .sort({ createdAt: -1 });
+
+      const data = payslips.map((p) => ({
+        ...p.toObject(),
+        id: p._id.toString(),
+      }));
+
+      return res.json({ data });
     }
-}
+
+  } catch (error) {
+    console.error(error); // 👈 IMPORTANT
+    return res.status(500).json({ error: 'Failed to get Payslip' });
+  }
+};
 
 //get payslip by ID
 // GET /api/payslips/:id

@@ -3,16 +3,15 @@ import User from "../models/User.model.js";
 import bcrypt from "bcrypt";
 
 //Get employees
-
-//Get /api/employees
+//GET /api/employees
 export const getEmployee = async (req, res) => {
   try {
     const { department } = req.query;
     const where = {};
     if (department) where.department = department;
 
-    const employees = (await Employee.find(where))
-      .toSorted({ createAt: -1 })
+    const employees = await Employee.find(where)
+      .sort({ createdAt: -1 })
       .populate("userId", "email role")
       .lean();
 
@@ -26,6 +25,7 @@ export const getEmployee = async (req, res) => {
 
     return res.json(result);
   } catch (error) {
+    console.error("Get employees error:", error);
     return res.status(500).json({ error: "Failed to fetch employees" });
   }
 };
@@ -67,7 +67,7 @@ export const createEmployee = async (req, res) => {
       lastName,
       email,
       phone,
-      positions,
+      position,
       department: department || "Engineering",
       basicSalary: Number(basicSalary) || 0,
       allowances: Number(allowances) || 0,
@@ -80,7 +80,7 @@ export const createEmployee = async (req, res) => {
     if (error.code === 11000) {
       return res.status(400).json({ error: "Email already exists" });
     }
-    console.error("Create employee error", error);
+    console.error("Create employee error:", error);
 
     return res.status(500).json({ error: "Failed to create employee" });
   }
@@ -90,7 +90,7 @@ export const createEmployee = async (req, res) => {
 //PUT /api/employees/:id
 export const updateEmployee = async (req, res) => {
   try {
-    const {id} = req.params;
+    const { id } = req.params;
     const {
       firstName,
       lastName,
@@ -105,38 +105,40 @@ export const updateEmployee = async (req, res) => {
       password,
       role,
       bio,
-      employmentStatus
+      employmentStatus,
     } = req.body;
 
     const employee = await Employee.findById(id);
-    if(!employee) return res.status(404).json({error: 'Employee not found'})
+    if (!employee) return res.status(404).json({ error: "Employee not found" });
 
-
-     await Employee.findByIdAndUpdate(id,{
+    await Employee.findByIdAndUpdate(id, {
       firstName,
       lastName,
       email,
       phone,
-      positions,
+      position,
       department: department || "Engineering",
       basicSalary: Number(basicSalary) || 0,
       allowances: Number(allowances) || 0,
       deductions: Number(deductions) || 0,
-      employmentStatus: employmentStatus || 'ACTIVE',
+      joinDate: new Date(joinDate),
+      employmentStatus: employmentStatus || "ACTIVE",
       bio: bio || "",
     });
+
     //Update user record
-    const userUpdate = {email}
-    if(role) userUpdate.role = role;
-    if(password) userUpdate.password = await bcrypt.hash(password, 10)
+    const userUpdate = { email };
+    if (role) userUpdate.role = role;
+    if (password) userUpdate.password = await bcrypt.hash(password, 10);
 
-    await User.findByIdAndUpdate(employee.userId, userUpdate)  
+    await User.findByIdAndUpdate(employee.userId, userUpdate);
 
-    return res.json({ success: true});
+    return res.json({ success: true });
   } catch (error) {
     if (error.code === 11000) {
       return res.status(400).json({ error: "Email already exists" });
     }
+    console.error("Update employee error:", error);
 
     return res.status(500).json({ error: "Failed to update employee" });
   }
@@ -148,15 +150,16 @@ export const deleteEmployee = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const employee = await Employee.findById(id)
-    if(!employee) return res.status(400).json({error: 'Employee not found'})
+    const employee = await Employee.findById(id);
+    if (!employee) return res.status(404).json({ error: "Employee not found" });
 
     employee.isDeleted = true;
-    employee.employmentStatus = 'INACTIVE'  
-    await employee.save()
+    employee.employmentStatus = "INACTIVE";
+    await employee.save();
 
-    return res.json({success:true})
+    return res.json({ success: true });
   } catch (error) {
-    return res.status(500).json({error: 'Failed to delete employee'})
+    console.error("Delete employee error:", error);
+    return res.status(500).json({ error: "Failed to delete employee" });
   }
 };

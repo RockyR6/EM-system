@@ -5,40 +5,55 @@ import Employee from "../models/Employee.model.js";
 //GET /api/profile
 export const getProfile = async (req, res) => {
     try {
-        const session = req.session;
-        const employee = await Employee.findOne({userId: session.userId})
+        const user = req.user;
 
-        if(!employee){
-            //Authenticated user is not an employee - return admin profile
+        const employee = await Employee.findOne({ userId: user.userId })
+
+        if (!employee) {
             return res.json({
                 firstName: 'Admin',
                 lastName: '',
-                email: session.email,
+                email: user.email,
             })
         }
+
         return res.json(employee)
     } catch (error) {
-        return res.status(500).json({error: 'Failed to fetch profile'})
+        console.error(error)
+        return res.status(500).json({ error: 'Failed to fetch profile' })
     }
 }
 
 //update profile
 //PUT /api/profile
-export const updateProfile = async(req, res) =>{
+export const updateProfile = async (req, res) => {
     try {
-        const session = req.session;
-        const employee = await Employee.findOne({ userId: session.userId })
+        const user = req.user;
 
-        if(!employee) return res.status(404).json({error: 'Employee not found'})
+        const employee = await Employee.findOne({ userId: user.userId })
 
-        if(!employee.isDeleted){
-            return res.status(403).json({error: 'Yorr account is deactivated. You cannot update your profile.'})
-        } 
-        await Employee.findByIdAndUpdate(employee._id, {
-            bio: req.body.bio
-        })   
-        return res.json({success: true})
+        if (!employee) {
+            return res.status(404).json({ error: 'Employee not found' })
+        }
+
+        if (employee.isDeleted) {
+            return res.status(403).json({
+                error: 'Your account is deactivated. You cannot update your profile.'
+            })
+        }
+
+        const { bio } = req.body || {};   // ✅ safe destructuring
+
+        if (bio === undefined) {
+            return res.status(400).json({ error: 'Bio is required' })
+        }
+
+        await Employee.findByIdAndUpdate(employee._id, { bio })
+
+        return res.json({ success: true })
+
     } catch (error) {
-        return res.status(500).json({error: 'Failed to update profile'})
+        console.error(error)
+        return res.status(500).json({ error: 'Failed to update profile' })
     }
 }

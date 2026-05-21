@@ -11,6 +11,7 @@ import payslipRouter from './routes/payslipRoutes.js';
 import dashboardRouter from './routes/dashboardRoutes.js';
 import { serve } from "inngest/express";
 import { inngest, functions } from "./inngest/index.js"
+import attendaceRouter from './routes/aatendanceRoutes.js';
 
 const app = express()
 
@@ -45,7 +46,7 @@ app.get('/', (req, res) => res.json({ message: 'Server is running' }))
 app.use('/api/auth', authRouter)
 app.use('/api/employees', employeeRouter)
 app.use('/api/profile', profileRouter)
-app.use('/api/attendance', profileRouter)
+app.use('/api/attendance', attendaceRouter)
 app.use('/api/leave', leaveRouter)
 app.use('/api/payslip', payslipRouter)
 app.use('/api/dashboard', dashboardRouter)
