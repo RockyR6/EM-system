@@ -1,59 +1,76 @@
 import { inngest } from "../inngest/index.js";
 import Employee from "../models/Employee.model.js";
-import LeaveAppliction from "../models/LeaveApplication.model.js";
+import LeaveApplication from "../models/LeaveApplication.model.js";
 
-//crate leaves
+//create leaves
 //POST /api/leaves
 export const createLeave = async (req, res) => {
   try {
-    const session = req.session;
-    const employee = await Employee.findOne({ userId: session.userId });
-    if (!employee) return res.status(404).json({ error: "Employee not found" });
+    // Your middleware sets decoded JWT to req.user
+    const userId = req.user?.userId || req.user?.id || req.user?._id;
+    
+    if (!userId) {
+      return res.status(401).json({ error: "Unauthorized - No user ID" });
+    }
+
+    const employee = await Employee.findOne({ userId });
+    if (!employee) {
+      return res.status(404).json({ error: "Employee not found" });
+    }
 
     if (employee.isDeleted) {
-      return res
-        .status(403)
-        .json({
-          error: "Your account is deactivated. You cannot apply for leave.",
-        });
+      return res.status(403).json({
+        error: "Your account is deactivated. You cannot apply for leave.",
+      });
     }
 
     const { type, startDate, endDate, reason } = req.body;
 
     if (!type || !startDate || !endDate || !reason) {
-      return res.status(400).json({ error: "Missing fields" });
+      return res.status(400).json({ error: "Missing required fields" });
     }
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    if (new Date(startDate) <= today || new Date(endDate) >= today) {
-      return res
-        .status(400)
-        .json({ error: "Leave dates must be in the future" });
+    
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    
+    if (start < today || end < today) {
+      return res.status(400).json({ 
+        error: "Leave dates must be in the future" 
+      });
     }
 
-    if (new Date(endDate) < new Date(startDate)) {
-      return res
-        .status(400)
-        .json({ error: "End date cannot be before start date" });
+    if (end < start) {
+      return res.status(400).json({ 
+        error: "End date cannot be before start date" 
+      });
     }
 
-    const leave = await LeaveAppliction.create({
+    const leave = await LeaveApplication.create({
       employeeId: employee._id,
       type,
-      startDate: new Date(startDate),
-      endDate: new Date(endDate),
+      startDate: start,
+      endDate: end,
       reason,
       status: "PENDING",
     });
 
-    //inngest
-    await inngest.send({
-      name: "leave/pending",
-      data: { leaveApplicationId: leave._id }
-    });
-    return res.json({ success: true, data: leave });
+    //inngest event
+    try {
+      await inngest.send({
+        name: "leave/pending",
+        data: { leaveApplicationId: leave._id },
+      });
+    } catch (inngestError) {
+      console.error("Inngest error:", inngestError);
+      // Don't fail the request if inngest fails
+    }
+    
+    return res.status(201).json({ success: true, data: leave });
   } catch (error) {
+    console.error("Create leave error:", error);
     return res.status(500).json({ error: "Failed to create leave" });
   }
 };
@@ -62,14 +79,23 @@ export const createLeave = async (req, res) => {
 //GET /api/leaves
 export const getLeave = async (req, res) => {
   try {
-    const session = req.session;
-    const isAdmin = session.role === "ADMIN";
+    // Your middleware sets decoded JWT to req.user
+    const userId = req.user?.userId || req.user?.id || req.user?._id;
+    const userRole = req.user?.role;
+    
+    if (!userId) {
+      return res.status(401).json({ error: "Unauthorized - No user ID" });
+    }
+
+    const isAdmin = userRole === "ADMIN";
+    
     if (isAdmin) {
       const status = req.query.status;
       const where = status ? { status } : {};
-      const leaves = (
-        await LeaveAppliction.find(where).populate("employeeId")
-      ).sort({ createdAt: -1 });
+      
+      const leaves = await LeaveApplication.find(where)
+        .populate("employeeId")
+        .sort({ createdAt: -1 });
 
       const data = leaves.map((l) => {
         const obj = l.toObject();
@@ -82,38 +108,61 @@ export const getLeave = async (req, res) => {
       });
       return res.json({ data });
     } else {
+      // Non-admin: get their own leaves
       const employee = await Employee.findOne({
-        userId: session.userId,
+        userId,
       }).lean();
-      if (!employee) return res.status(404).json({ error: "Not found" });
-      const leaves = await LeaveAppliction.find({
+      
+      if (!employee) {
+        return res.status(404).json({ error: "Employee not found" });
+      }
+      
+      const leaves = await LeaveApplication.find({
         employeeId: employee._id,
       }).sort({ createdAt: -1 });
+      
       return res.json({
         data: leaves,
         employee: { ...employee, id: employee._id.toString() },
       });
     }
   } catch (error) {
+    console.error("Get leaves error:", error);
     return res.status(500).json({ error: "Failed to get leaves" });
   }
 };
 
 //update leaves status
-//PATCH /api/leaves
+//PATCH /api/leaves/:id
 export const updateLeaveStatus = async (req, res) => {
   try {
+    // middleware sets decoded JWT to req.user
+    const userRole = req.user?.role;
+    
+    // Only admins can update leave status
+    if (userRole !== "ADMIN") {
+      return res.status(403).json({ error: "Only admins can update leave status" });
+    }
+
     const { status } = req.body;
-    if (!["PENDING", "APPROVED", "REJECTED"]) {
+    
+    if (!["PENDING", "APPROVED", "REJECTED"].includes(status)) {
       return res.status(400).json({ error: "Invalid status" });
     }
-    const leave = await LeaveAppliction.findByIdAndUpdate(
+    
+    const leave = await LeaveApplication.findByIdAndUpdate(
       req.params.id,
       { status },
-      { returnDocument: "after" },
+      { new: true }
     );
+    
+    if (!leave) {
+      return res.status(404).json({ error: "Leave application not found" });
+    }
+    
     return res.json({ success: true, data: leave });
   } catch (error) {
-    return res.status(500).json({ error: "Failed to update leaves status" });
+    console.error("Update leave status error:", error);
+    return res.status(500).json({ error: "Failed to update leave status" });
   }
 };

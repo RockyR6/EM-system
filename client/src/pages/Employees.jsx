@@ -3,6 +3,7 @@ import { dummyEmployeeData, DEPARTMENTS } from '../assets/assets';
 import { Plus, Search, X } from 'lucide-react';
 import EmployeeCard from '../components/EmployeeCard';
 import EmployeeForm from '../components/EmployeeForm';
+import api from '../api/axios';
 
 const Employees = () => {
   const [employees, setEmployees] = useState([]);
@@ -14,15 +15,15 @@ const Employees = () => {
 
   //added selectedDept dependency
   const fetchEmployees = useCallback(async() => {
-    setLoading(true);
-
-    setEmployees( dummyEmployeeData.filter((emp) =>
-      selectedDept ? emp.department === selectedDept : emp
-    ));
-
-    setTimeout(() => {
+    try {
+      const url = selectedDept ? `/employees?department=${selectedDept}` : '/employees';
+      const res = await api.get(url);
+      setEmployees(res.data);
+    } catch (error) {
+      console.error("Error fetching employees:", error);
+    } finally {
       setLoading(false);
-    }, 1000);
+    }
   }, [selectedDept]);
 
   // added dependency

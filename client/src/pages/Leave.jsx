@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useState } from "react";
-import { dummyLeaveData } from "../assets/assets";
 import Loading from "../components/Loading";
 import {
   PalmtreeIcon,
@@ -9,20 +8,35 @@ import {
 } from "lucide-react";
 import LeaveHistory from "../components/leave/LeaveHistory";
 import ApplyLeaveModal from "../components/leave/ApplyLeaveModal";
+import { useAuth } from "../context/AuthContext";
+import api from "../api/axios";
+import toast from "react-hot-toast";
 
 const Leave = () => {
+  const { user } = useAuth();
   const [leave, setLeave] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModel, setShowModel] = useState(false);
   const [isDeleted, setIsDeleted] = useState(false);
-  const isAdmin = false;
+  const isAdmin = user?.role === "ADMIN";
 
-  const fetchLeaves = useCallback(() => {
-    setLeave(dummyLeaveData);
-    setTimeout(() => {
+  const fetchLeaves = useCallback(async () => {
+    try {
+      const res = await api.get('/leave');
+      setLeave(res.data.data || []);
+      // Fixed: Check if employee is deleted (should be false to show button)
+      if (res.data.employee?.isDeleted) {
+        setIsDeleted(true);
+      } else {
+        setIsDeleted(false);
+      }
+    } catch (error) {
+      console.error("Fetch leaves error:", error);
+      toast.error(error.response?.data?.error || error.message);
+    } finally {
       setLoading(false);
-    }, 1000);
-  });
+    }
+  }, []);
 
   useEffect(() => {
     fetchLeaves();
@@ -57,28 +71,46 @@ const Leave = () => {
             onClick={() => setShowModel(true)}
             className="btn-primary flex items-center gap-2 w-full sm:w-auto justify-center"
           >
-            <PlusIcon w-4 h-4 /> Apply for Leave
+            <PlusIcon size={16} />
+            Apply for Leave
           </button>
         )}
       </div>
+
       {!isAdmin && (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-5 mb-8">
-          {leaveStats.map((s)=>(
-            <div key={s.label} className="card card-hover p-5 sm:p-6 flex items-center gap-4 relative overflow-hidden group">
-              <div className=" absolute left-0 top-0 bottom-0 w-1 rounded-r-full bg-slate-500/70 group-hover:bg-indigo-500/70"/>
-              <div className="p-3 bg-slate-100 rounded-lg group-hover:bg-indigo-50 transition-colors duration-200">
-                <s.icon className="w-5 h-5 text-slate-600 group-hover:text-indigo-600 transition-colors duration-200"/>
+          {leaveStats.map((s) => {
+            const IconComponent = s.icon;
+            return (
+              <div
+                key={s.label}
+                className="card card-hover p-5 sm:p-6 flex items-center gap-4 relative overflow-hidden group"
+              >
+                <div className="absolute left-0 top-0 bottom-0 w-1 rounded-r-full bg-slate-500/70 group-hover:bg-indigo-500/70" />
+                <div className="p-3 bg-slate-100 rounded-lg group-hover:bg-indigo-50 transition-colors duration-200">
+                  <IconComponent className="w-5 h-5 text-slate-600 group-hover:text-indigo-600 transition-colors duration-200" />
+                </div>
+                <div>
+                  <p className="text-sm text-slate-500">{s.label}</p>
+                  <p className="text-2xl font-bold text-slate-900 tracking-tight">
+                    {s.value}{" "}
+                    <span className="text-sm font-normal text-slate-400">
+                      taken
+                    </span>
+                  </p>
+                </div>
               </div>
-              <div>
-                <p className="text-sm text-slate-500">{s.label}</p>
-                <p className="text-2xl font-bold text-slate-900 tracking-tight">{s.value} <span className="text-sm font-normal text-slate-400">taken</span></p>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
-      <LeaveHistory leaves={leave} isAdmin={isAdmin} onUpdate={fetchLeaves}/>
-      <ApplyLeaveModal open={showModel} onClose={()=> setShowModel(false)} onSuccess={fetchLeaves}/>
+
+      <LeaveHistory leaves={leave} isAdmin={isAdmin} onUpdate={fetchLeaves} />
+      <ApplyLeaveModal
+        open={showModel}
+        onClose={() => setShowModel(false)}
+        onSuccess={fetchLeaves}
+      />
     </div>
   );
 };
